@@ -1,0 +1,3274 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Gestione DPI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Font Awesome corretto -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ========== CSS VARIABLES & THEMES ========== */
+        :root {
+            --bg-primary: #667eea;
+            --bg-secondary: #764ba2;
+            --bg-container: white;
+            --bg-header: #2c3e50;
+            --bg-header-secondary: #34495e;
+            --bg-nav: #2c3e50;
+            --text-primary: #2c3e50;
+            --text-secondary: white;
+            --border-color: #bdc3c7;
+            --border-focus: #3498db;
+            --table-hover: #f8f9fa;
+            --table-border: #ecf0f1;
+            --sidebar-bg: #2c3e50;
+            --sidebar-text: white;
+            --sidebar-active: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --error-color: #e74c3c;
+            --info-color: #3498db;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-container: #0f3460;
+            --bg-header: #0f3460;
+            --bg-header-secondary: #16213e;
+            --bg-nav: #1a1a2e;
+            --text-primary: #e94560;
+            --text-secondary: #f5f5f5;
+            --border-color: #533483;
+            --border-focus: #e94560;
+            --table-hover: #1a1a2e;
+            --table-border: #533483;
+            --sidebar-bg: #1a1a2e;
+            --sidebar-text: #f5f5f5;
+            --sidebar-active: #e94560;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --error-color: #e74c3c;
+            --info-color: #3498db;
+        }
+
+        /* ========== BASE STYLES & RESET ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* ========== LOGIN STYLES ========== */
+        .login-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .login-logo {
+            margin-bottom: 30px;
+        }
+
+        .login-logo i {
+            font-size: 64px;
+            color: var(--bg-primary);
+        }
+
+        .login-title {
+            font-size: 28px;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .login-subtitle {
+            color: var(--gray);
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .btn-google {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .btn-google:hover {
+            background-color: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 133, 244, 0.4);
+        }
+
+        .btn-google i {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+
+        .login-loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* ========== LOADING SPINNER ========== */
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--bg-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ========== MAIN CONTAINER & LAYOUT ========== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-container);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            min-height: 80vh;
+        }
+
+        .main-header {
+            background: linear-gradient(135deg, var(--bg-header) 0%, var(--bg-header-secondary) 100%);
+            color: var(--text-secondary);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            text-align: center;
+        }
+        
+        .main-header h1 {
+            font-size: 1.8em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+        }
+        
+        .main-header h1::before {
+            content: "®";
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        
+        .main-header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* ========== SIDEBAR & NAVIGATION ========== */
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            padding: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .nav-button {
+            background: transparent;
+            color: var(--sidebar-text);
+            border: none;
+            padding: 12px 15px;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: normal;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-button.active {
+            background: var(--sidebar-active);
+            color: white;
+            font-weight: bold;
+        }
+
+        .nav-button.active::before {
+            content: "✓";
+            margin-right: 5px;
+            font-weight: bold;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            text-align: center;
+            color: var(--sidebar-text);
+            font-size: 0.9em;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logout-sidebar {
+            margin-top: 20px;
+            padding: 12px 15px;
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-sidebar:hover {
+            background: rgba(255, 0, 0, 0.3);
+        }
+
+        /* ========== CONTENT AREA & SECTIONS ========== */
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section {
+            display: none;
+            min-height: 600px;
+            flex: 1;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section h2 {
+            color: var(--text-primary);
+            margin-bottom: 30px;
+            font-size: 2em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        /* ========== FORM STYLES ========== */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+            background: var(--bg-container);
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        /* ========== BUTTON STYLES ========== */
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn.success { background: linear-gradient(135deg, var(--success-color) 0%, #229954 100%); }
+        .btn.danger { background: linear-gradient(135deg, var(--error-color) 0%, #c0392b 100%); }
+        .btn.warning { background: linear-gradient(135deg, var(--warning-color) 0%, #e67e22 100%); }
+        .btn.info { background: linear-gradient(135deg, var(--info-color) 0%, #138496 100%); }
+
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+        }
+
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        /* ========== TABLE STYLES ========== */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-container);
+            transition: all 0.3s ease;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--table-border);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background: var(--table-hover);
+        }
+
+        /* ========== SIGNATURE STYLES ========== */
+        .signature-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .signature-canvas {
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            touch-action: none;
+        }
+
+        .signature-buttons {
+            margin-top: 10px;
+        }
+
+        .signature-preview {
+            max-width: 80px;
+            max-height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .print-signature-preview {
+            max-width: 120px !important;
+            max-height: 60px !important;
+            border: 1px solid #333;
+            border-radius: 4px;
+            display: block;
+            margin: 2px auto;
+        }
+
+        /* ========== MESSAGE STYLES ========== */
+        .error-message {
+            background: var(--error-color);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .success-message {
+            background: var(--success-color);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .warning-message {
+            background: var(--warning-color);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .error-text {
+            color: var(--error-color);
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        /* ========== DASHBOARD STYLES ========== */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .dashboard-card h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .dashboard-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: var(--bg-primary);
+            margin: 10px 0;
+        }
+
+        .dashboard-card .label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* ========== SEARCH & DROPDOWN STYLES ========== */
+        .search-worker-container {
+            position: relative;
+        }
+
+        .search-worker-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .worker-dropdown {
+            position: absolute;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-container);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            z-index: 100;
+            display: none;
+        }
+
+        .worker-dropdown-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .worker-dropdown-item:hover {
+            background-color: var(--table-hover);
+        }
+
+        /* ========== PRINT & MODAL STYLES ========== */
+        .select-all-container {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .select-all-container input {
+            margin-right: 10px;
+        }
+
+        .logo-preview {
+            max-width: 200px;
+            max-height: 100px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .print-company-logo {
+            max-width: 80px !important;
+            max-height: 50px !important;
+            display: block;
+            margin: 0 auto 10px auto;
+            object-fit: contain;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: var(--bg-container);
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80%;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        #pdf-preview-iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        /* ========== LOADING OVERLAY ========== */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            flex-direction: column;
+            color: white;
+        }
+
+        .loading-text {
+            margin-top: 15px;
+            font-size: 1.2em;
+        }
+
+        /* ========== RESPONSIVE DESIGN ========== */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                order: 2;
+            }
+            
+            .content-area {
+                order: 1;
+            }
+            
+            .nav-grid {
+                flex-direction: row;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+            
+            .nav-button {
+                min-width: 150px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .main-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 15px;
+            }
+            
+            .main-header h1 {
+                font-size: 1.5em;
+                margin-bottom: 10px;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .theme-toggle {
+                position: relative;
+                right: auto;
+                margin-top: 10px;
+            }
+
+            .login-box {
+                padding: 20px;
+                margin: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ==================== LOGIN CONTAINER ==================== -->
+    <div class="login-container" id="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <i class="fas fa-hard-hat"></i>
+            </div>
+            <h1 class="login-title">Gestione DPI</h1>
+            <p class="login-subtitle">Sistema di Gestione Dispositivi di Protezione Individuale</p>
+            
+            <button class="btn-google" id="google-login">
+                <i class="fab fa-google"></i> Accedi con Google
+            </button>
+            
+            <div class="login-loading" id="login-loading">
+                <div class="loading-spinner"></div>
+                <p>Accesso in corso...</p>
+            </div>
+            
+            <div style="margin-top: 20px; color: #777; font-size: 14px;">
+                Accedi con il tuo account Google istituzionale
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== LOADING OVERLAY ==================== -->
+    <div class="loading-overlay" id="global-loading" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loading-text">Caricamento in corso...</div>
+    </div>
+
+    <!-- ==================== MAIN APPLICATION ==================== -->
+    <div class="container" id="app-container" style="display: none;">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <div class="sidebar">
+            <div class="nav-grid">
+                <button class="nav-button active" onclick="showSection('home-section')">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </button>
+                <button class="nav-button" onclick="showSection('consegna-section')">
+                    <i class="fas fa-truck"></i> Consegna DPI
+                </button>
+                <button class="nav-button" onclick="showSection('lavoratori-section')">
+                    <i class="fas fa-users"></i> Lavoratori
+                </button>
+                <button class="nav-button" onclick="showSection('dpi-section')">
+                    <i class="fas fa-hard-hat"></i> DPI
+                </button>
+                <button class="nav-button" onclick="showSection('stampa-section')">
+                    <i class="fas fa-print"></i> Stampa
+                </button>
+                <button class="nav-button" onclick="showSection('impostazioni-section')">
+                    <i class="fas fa-cog"></i> Impostazioni
+                </button>
+            </div>
+            
+            <!-- LOGOUT BUTTON -->
+            <div class="logout-sidebar" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </div>
+            
+            <div class="sidebar-footer">
+                Versione 2.1 © 2023 - Firestore
+            </div>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <div class="content-area">
+            
+            <!-- MAIN HEADER -->
+            <div class="main-header">
+                <h1>Gestione DPI</h1>
+                <p>Sistema di Gestione Dispositivi di Protezione Individuale</p>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Cambia tema">🌙</button>
+            </div>
+
+            <!-- ==================== SECTIONS ==================== -->
+            
+            <!-- HOME SECTION - DASHBOARD -->
+            <div class="section active" id="home-section">
+                <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>Lavoratori Attivi</h3>
+                        <div class="number" id="active-workers-count">0</div>
+                        <div class="label">Totale lavoratori registrati</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>DPI in Stock</h3>
+                        <div class="number" id="dpi-stock-count">0</div>
+                        <div class="label">Dispositivi disponibili</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>Totale Consegne</h3>
+                        <div class="number" id="today-deliveries-count">0</div>
+                        <div class="label">Totale consegne effettuate</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>Scadenze Prossime</h3>
+                        <div class="number" id="expiring-soon-count">0</div>
+                        <div class="label">DPI in scadenza (30 giorni)</div>
+                    </div>
+                    <!-- NUOVA CARD DOCUMENTAZIONE -->
+                    <div class="dashboard-card">
+                        <h3>Documentazione</h3>
+                        <div class="number">📚</div>
+                        <div class="label">Manuale d'uso completo</div>
+                        <button class="btn info" onclick="openDocumentation()" style="margin-top: 10px; width: 100%;">
+                            <i class="fas fa-book"></i> Apri Documentazione
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONSEGNA SECTION - DELIVERY MANAGEMENT -->
+            <div class="section" id="consegna-section">
+                <h2><i class="fas fa-truck"></i> Consegna DPI</h2>
+                <div id="error-container"></div>
+                
+                <!-- Worker and DPI Selection -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="search-lavoratore"><i class="fas fa-user"></i> Lavoratore:</label>
+                        <div class="search-worker-container">
+                            <input class="search-worker-input" id="search-lavoratore" 
+                                   oninput="filterWorkers('search-lavoratore')" 
+                                   placeholder="Cerca per nome, cognome o matricola" type="text"/>
+                            <div class="worker-dropdown" id="worker-dropdown"></div>
+                        </div>
+                        <div class="error-text" id="error-lavoratore"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="select-dpi"><i class="fas fa-hard-hat"></i> DPI:</label>
+                        <select id="select-dpi">
+                            <option value="">Seleziona DPI</option>
+                        </select>
+                        <div class="error-text" id="error-dpi"></div>
+                    </div>
+                </div>
+                
+                <!-- Delivery Details -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="quantita"><i class="fas fa-calculator"></i> Quantità:</label>
+                        <input id="quantita" min="1" type="number" value="1"/>
+                        <div class="error-text" id="error-quantita"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="data-consegna"><i class="fas fa-calendar"></i> Data:</label>
+                        <input id="data-consegna" type="date"/>
+                        <div class="error-text" id="error-data"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="motivo"><i class="fas fa-sticky-note"></i> Motivo:</label>
+                        <select id="motivo">
+                            <option value="primo">Primo Prelievo</option>
+                            <option value="danneggiato">Danneggiato</option>
+                            <option value="scaduto">Scaduto</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Signatures -->
+                <div class="form-grid">
+                    <div class="signature-container">
+                        <label><i class="fas fa-signature"></i> Firma Preposto:</label>
+                        <canvas class="signature-canvas" height="150" id="firma-preposto" width="300"></canvas>
+                        <div class="signature-buttons">
+                            <button class="btn danger" onclick="clearSignature('firma-preposto')">
+                                <i class="fas fa-trash"></i> Cancella Firma
+                            </button>
+                        </div>
+                        <div class="error-text" id="error-firma-preposto"></div>
+                    </div>
+                    <div class="signature-container">
+                        <label><i class="fas fa-signature"></i> Firma Lavoratore:</label>
+                        <canvas class="signature-canvas" height="150" id="firma-lavoratore" width="300"></canvas>
+                        <div class="signature-buttons">
+                            <button class="btn danger" onclick="clearSignature('firma-lavoratore')">
+                                <i class="fas fa-trash"></i> Cancella Firma
+                            </button>
+                        </div>
+                        <div class="error-text" id="error-firma-lavoratore"></div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <button class="btn success" onclick="addToDelivery()" id="add-delivery-btn">
+                        <i class="fas fa-plus"></i> Aggiungi alla consegna
+                    </button>
+                    <button class="btn warning" onclick="saveDelivery()" id="save-delivery-btn">
+                        <i class="fas fa-save"></i> Salva Consegna
+                    </button>
+                    <button class="btn danger" onclick="clearDeliveryFields()">
+                        <i class="fas fa-trash"></i> Pulisci Campi
+                    </button>
+                </div>
+                
+                <!-- Delivery Table -->
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Lavoratore</th>
+                                <th>DPI</th>
+                                <th>Codice SAP</th>
+                                <th>Quantità</th>
+                                <th>Data</th>
+                                <th>Motivo</th>
+                                <th>Firma Preposto</th>
+                                <th>Firma Lavoratore</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="delivery-table-body">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- LAVORATORI SECTION - WORKER MANAGEMENT -->
+            <div class="section" id="lavoratori-section">
+                <h2><i class="fas fa-users"></i> Gestione Lavoratori</h2>
+                
+                <!-- Worker Form -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nome"><i class="fas fa-user"></i> Nome:</label>
+                        <input id="nome" placeholder="Nome del lavoratore" type="text"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="cognome"><i class="fas fa-user"></i> Cognome:</label>
+                        <input id="cognome" placeholder="Cognome del lavoratore" type="text"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="matricola"><i class="fas fa-id-card"></i> Matricola:</label>
+                        <input id="matricola" placeholder="Matricola del lavoratore" type="text"/>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="reparto"><i class="fas fa-building"></i> Reparto:</label>
+                        <input id="reparto" placeholder="Reparto (opzionale)" type="text"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="mansione"><i class="fas fa-briefcase"></i> Mansione:</label>
+                        <input id="mansione" placeholder="Mansione (opzionale)" type="text"/>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <button class="btn success" onclick="addWorker()" id="add-worker-btn">
+                        <i class="fas fa-plus"></i> Aggiungi Lavoratore
+                    </button>
+                    <button class="btn warning" onclick="editWorker()" id="edit-worker-btn">
+                        <i class="fas fa-edit"></i> Modifica Lavoratore
+                    </button>
+                    <button class="btn danger" onclick="deleteWorker()" id="delete-worker-btn">
+                        <i class="fas fa-trash"></i> Cancella Lavoratore
+                    </button>
+                </div>
+                
+                <!-- Workers Table -->
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Cognome</th>
+                                <th>Matricola</th>
+                                <th>Reparto</th>
+                                <th>Mansione</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workers-table-body">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- DPI SECTION - DPI MANAGEMENT -->
+            <div class="section" id="dpi-section">
+                <h2><i class="fas fa-hard-hat"></i> Gestione DPI</h2>
+                
+                <!-- DPI Form -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nome-dpi"><i class="fas fa-hard-hat"></i> Nome DPI:</label>
+                        <input id="nome-dpi" placeholder="Nome del DPI" type="text"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="codice-sap"><i class="fas fa-tag"></i> Codice SAP:</label>
+                        <input id="codice-sap" placeholder="Codice SAP univoco" type="text"/>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="categoria"><i class="fas fa-folder"></i> Categoria:</label>
+                        <select id="categoria">
+                            <option value="">Seleziona categoria</option>
+                            <option value="Testa">Testa</option>
+                            <option value="Occhi">Occhi</option>
+                            <option value="Udito">Udito</option>
+                            <option value="Vie Respiratorie">Vie Respiratorie</option>
+                            <option value="Mani">Mani</option>
+                            <option value="Corpo">Corpo</option>
+                            <option value="Piedi">Piedi</option>
+                            <option value="Anticaduta">Anticaduta</option>
+                            <option value="Altro">Altro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scadenza"><i class="fas fa-clock"></i> Scadenza (mesi):</label>
+                        <input id="scadenza" placeholder="Durata in mesi (opzionale)" type="number"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="note-dpi"><i class="fas fa-sticky-note"></i> Note:</label>
+                    <input id="note-dpi" placeholder="Note aggiuntive (opzionale)" type="text"/>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <button class="btn success" onclick="addDPI()" id="add-dpi-btn">
+                        <i class="fas fa-plus"></i> Aggiungi DPI
+                    </button>
+                    <button class="btn warning" onclick="editDPI()" id="edit-dpi-btn">
+                        <i class="fas fa-edit"></i> Modifica DPI
+                    </button>
+                    <button class="btn danger" onclick="deleteDPI()" id="delete-dpi-btn">
+                        <i class="fas fa-trash"></i> Cancella DPI
+                    </button>
+                </div>
+                
+                <!-- DPI Table -->
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Codice SAP</th>
+                                <th>Categoria</th>
+                                <th>Scadenza (mesi)</th>
+                                <th>Note</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dpi-table-body">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- STAMPA SECTION - PRINT MANAGEMENT -->
+            <div class="section" id="stampa-section">
+                <h2><i class="fas fa-print"></i> Stampa Consegne</h2>
+                
+                <!-- Print Filters -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tipo-contenuto"><i class="fas fa-filter"></i> Tipo contenuto:</label>
+                        <select id="tipo-contenuto" onchange="toggleContentType()">
+                            <option value="lavoratore">Singolo lavoratore</option>
+                            <option value="tutte">Tutte le consegne</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="lavoratore-field">
+                        <label for="search-lavoratore-stampa"><i class="fas fa-user"></i> Lavoratore:</label>
+                        <div class="search-worker-container">
+                            <input class="search-worker-input" id="search-lavoratore-stampa" 
+                                   oninput="filterWorkers('search-lavoratore-stampa')" 
+                                   placeholder="Cerca per nome, cognome o matricola" type="text"/>
+                            <div class="worker-dropdown" id="worker-dropdown-stampa"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="data-inizio"><i class="fas fa-calendar"></i> Data inizio (opzionale):</label>
+                        <input id="data-inizio" type="date"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="data-fine"><i class="fas fa-calendar"></i> Data fine (opzionale):</label>
+                        <input id="data-fine" type="date"/>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <button class="btn" onclick="loadDeliveriesForPrint()" id="load-print-btn">
+                        <i class="fas fa-search"></i> Carica Consegne
+                    </button>
+                    <button class="btn warning" onclick="clearPrintFields()">
+                        <i class="fas fa-trash"></i> Pulisci Campi
+                    </button>
+                    <button class="btn" onclick="printPDF()" id="print-pdf-btn">
+                        <i class="fas fa-print"></i> Stampa PDF
+                    </button>
+                    <button class="btn info" onclick="migrateOldDeliveries()" id="migrate-btn">
+                        <i class="fas fa-sync"></i> Migra Consegne Vecchie
+                    </button>
+                    <button class="btn info" onclick="debugDeliveryData()" style="margin-left: 10px;">
+                        <i class="fas fa-bug"></i> Debug Dati
+                    </button>
+                </div>
+                
+                <!-- Print Results -->
+                <div id="deliveries-container" style="display: none;">
+                    <h3>Consegne da stampare:</h3>
+                    <div class="select-all-container">
+                        <input type="checkbox" id="select-all-print" onchange="toggleSelectAllPrint()"/>
+                        <label for="select-all-print">Seleziona tutte</label>
+                        <button class="btn danger" onclick="deleteSelectedDeliveries()" style="margin-left: 20px;">
+                            <i class="fas fa-trash"></i> Elimina selezionate
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table id="print-deliveries-table">
+                            <thead>
+                                <tr>
+                                    <th>Selez.</th>
+                                    <th>Lavoratore</th>
+                                    <th>DPI</th>
+                                    <th>Codice SAP</th>
+                                    <th>Quantità</th>
+                                    <th>Data</th>
+                                    <th>Motivo</th>
+                                    <th>Firma Preposto</th>
+                                    <th>Firma Lavoratore</th>
+                                </tr>
+                            </thead>
+                            <tbody id="print-deliveries-body">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMPOSTAZIONI SECTION - SETTINGS -->
+            <div class="section" id="impostazioni-section">
+                <h2><i class="fas fa-cog"></i> Impostazioni</h2>
+                
+                <!-- Settings Form -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="company-name"><i class="fas fa-building"></i> Nome Azienda:</label>
+                        <input id="company-name" placeholder="Nome della tua azienda" type="text"/>
+                    </div>
+                    <div class="form-group">
+                        <label for="company-logo"><i class="fas fa-image"></i> Logo Azienda:</label>
+                        <input accept="image/*" id="company-logo" type="file" onchange="previewLogo()"/>
+                        <img id="logo-preview" class="logo-preview" alt="Anteprima logo"/>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>
+                            <input id="use-logo-print" type="checkbox"/>
+                            <i class="fas fa-print"></i> Usa logo aziendale nelle stampe
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input id="dark-mode-toggle" type="checkbox" onchange="toggleTheme()"/>
+                            <i class="fas fa-moon"></i> Modalità scura
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin: 30px 0;">
+                    <button class="btn success" onclick="saveSettings()" id="save-settings-btn">
+                        <i class="fas fa-save"></i> Salva Impostazioni
+                    </button>
+                    <button class="btn info" onclick="exportData()" id="export-btn">
+                        <i class="fas fa-download"></i> Esporta Dati
+                    </button>
+                    <button class="btn warning" onclick="importData()" id="import-btn">
+                        <i class="fas fa-upload"></i> Importa Dati
+                    </button>
+                    <button class="btn danger" onclick="clearAllData()" id="clear-data-btn">
+                        <i class="fas fa-trash"></i> Cancella Tutti i Dati
+                    </button>
+                </div>
+                
+                <!-- Current Settings Display -->
+                <div class="form-grid" style="margin-top: 30px;">
+                    <div class="form-group">
+                        <h3>Impostazioni Correnti</h3>
+                        <div id="current-settings">
+                            <p><strong><i class="fas fa-building"></i> Nome Azienda:</strong> <span id="current-company-name">Non impostato</span></p>
+                            <p><strong><i class="fas fa-image"></i> Logo:</strong> <span id="current-logo-status">Non impostato</span></p>
+                            <p><strong><i class="fas fa-print"></i> Usa logo in stampa:</strong> <span id="current-logo-print">No</span></p>
+                            <p><strong><i class="fas fa-palette"></i> Tema:</strong> <span id="current-theme">Chiaro</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT ==================== -->
+    <script>
+        // ==================== FIREBASE CONFIGURATION ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNJ8pA3bsUCrcSEJnh9HeYq2P0QyNR0zc",
+            authDomain: "gestdpi-61a0e.firebaseapp.com",
+            projectId: "gestdpi-61a0e",
+            storageBucket: "gestdpi-61a0e.firebasestorage.app",
+            messagingSenderId: "291270624774",
+            appId: "1:291270624774:web:e91a110438792e7ff0e587",
+            measurementId: "G-EEQ8E92K5G"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ==================== APPLICATION STATE MANAGEMENT ====================
+        const AppState = (function() {
+            let workers = [];
+            let dpiList = [];
+            let deliveries = [];
+            let currentDelivery = [];
+            let selectedWorkerIndex = -1;
+            let selectedDPIIndex = -1;
+            let hasSignedPreposto = false;
+            let hasSignedLavoratore = false;
+            let printDeliveries = [];
+
+            return {
+                // Getters
+                getWorkers: () => [...workers],
+                getDpiList: () => [...dpiList],
+                getDeliveries: () => [...deliveries],
+                getCurrentDelivery: () => [...currentDelivery],
+                getSelectedWorkerIndex: () => selectedWorkerIndex,
+                getSelectedDPIIndex: () => selectedDPIIndex,
+                getHasSignedPreposto: () => hasSignedPreposto,
+                getHasSignedLavoratore: () => hasSignedLavoratore,
+                getPrintDeliveries: () => [...printDeliveries],
+                
+                // Setters
+                setWorkers: (newWorkers) => { if (Array.isArray(newWorkers)) workers = [...newWorkers]; },
+                setDpiList: (newDpiList) => { if (Array.isArray(newDpiList)) dpiList = [...newDpiList]; },
+                setDeliveries: (newDeliveries) => { if (Array.isArray(newDeliveries)) deliveries = [...newDeliveries]; },
+                setCurrentDelivery: (newCurrentDelivery) => { if (Array.isArray(newCurrentDelivery)) currentDelivery = [...newCurrentDelivery]; },
+                setSelectedWorkerIndex: (index) => { selectedWorkerIndex = Number.isInteger(index) ? index : -1; },
+                setSelectedDPIIndex: (index) => { selectedDPIIndex = Number.isInteger(index) ? index : -1; },
+                setHasSignedPreposto: (value) => { hasSignedPreposto = Boolean(value); },
+                setHasSignedLavoratore: (value) => { hasSignedLavoratore = Boolean(value); },
+                setPrintDeliveries: (newPrintDeliveries) => { if (Array.isArray(newPrintDeliveries)) printDeliveries = [...newPrintDeliveries]; },
+                
+                // Methods
+                addToCurrentDelivery: (item) => currentDelivery.push({...item}),
+                removeFromCurrentDelivery: (index) => {
+                    if (index >= 0 && index < currentDelivery.length) {
+                        currentDelivery.splice(index, 1);
+                        return true;
+                    }
+                    return false;
+                },
+                clearCurrentDelivery: () => currentDelivery = []
+            };
+        })();
+
+        // ==================== UTILITY FUNCTIONS ====================
+        
+        /**
+         * Shows loading overlay with custom message
+         */
+        function showLoading(message = 'Caricamento in corso...') {
+            const loading = document.getElementById('global-loading');
+            const loadingText = document.getElementById('loading-text');
+            if (loading && loadingText) {
+                loadingText.textContent = message;
+                loading.style.display = 'flex';
+            }
+        }
+
+        /**
+         * Hides loading overlay
+         */
+        function hideLoading() {
+            const loading = document.getElementById('global-loading');
+            if (loading) {
+                loading.style.display = 'none';
+            }
+        }
+
+        /**
+         * Sets loading state for buttons
+         */
+        function setButtonLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+            button.disabled = isLoading;
+            isLoading ? button.classList.add('btn-loading') : button.classList.remove('btn-loading');
+        }
+
+        /**
+         * Shows message to user
+         */
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('error-container');
+            if (!container) return;
+            container.innerHTML = `<div class="${type}-message">${message}</div>`;
+            setTimeout(() => { 
+                if (container) container.innerHTML = ''; 
+            }, type === 'error' ? 5000 : 3000);
+        }
+
+        function showError(message) { showMessage(message, 'error'); }
+        function showSuccess(message) { showMessage(message, 'success'); }
+        function showWarning(message) { showMessage(message, 'warning'); }
+
+        /**
+         * Gets SAP code from DPI field value
+         */
+        function getSapCodeFromDpiField(dpiValue) {
+            const dpiList = AppState.getDpiList();
+            
+            // Search by SAP code
+            const dpiBySap = dpiList.find(d => d.sap === dpiValue);
+            if (dpiBySap) return dpiBySap.sap;
+            
+            // Search by document ID
+            const dpiById = dpiList.find(d => d.id === dpiValue);
+            if (dpiById) return dpiById.sap;
+            
+            // Search in "dpi_timestamp_id" format
+            if (dpiValue && typeof dpiValue === 'string' && dpiValue.startsWith('dpi_')) {
+                const dpiByPartialId = dpiList.find(d => dpiValue.includes(d.id));
+                if (dpiByPartialId) return dpiByPartialId.sap;
+            }
+            
+            // Fallback: return original value
+            return dpiValue;
+        }
+
+        /**
+         * Gets DPI name from DPI field value
+         */
+        function getDpiNameFromDpiField(dpiValue) {
+            const dpiList = AppState.getDpiList();
+            
+            // Search by SAP code
+            const dpiBySap = dpiList.find(d => d.sap === dpiValue);
+            if (dpiBySap) return dpiBySap.nome;
+            
+            // Search by document ID
+            const dpiById = dpiList.find(d => d.id === dpiValue);
+            if (dpiById) return dpiById.nome;
+            
+            // Search in "dpi_timestamp_id" format
+            if (dpiValue && typeof dpiValue === 'string' && dpiValue.startsWith('dpi_')) {
+                const dpiByPartialId = dpiList.find(d => dpiValue.includes(d.id));
+                if (dpiByPartialId) return dpiByPartialId.nome;
+            }
+            
+            // Fallback: return original value
+            return dpiValue;
+        }
+
+        /**
+         * Opens documentation in new tab
+         */
+        function openDocumentation() {
+            // URL della documentazione online
+            const docUrl = 'https://github.com/tuorepo/gestione-dpi/blob/main/README_FUNZIONAMENTO.md';
+            
+            // Alternative: aprire un file locale se presente
+            // const docUrl = './README_FUNZIONAMENTO.md';
+            
+            window.open(docUrl, '_blank', 'noopener,noreferrer');
+            showSuccess('Documentazione aperta in una nuova scheda');
+        }
+
+        // ==================== AUTHENTICATION MANAGEMENT ====================
+        
+        /**
+         * Shows login screen
+         */
+        function showLoginScreen() {
+            const loginContainer = document.getElementById('login-container');
+            const appContainer = document.getElementById('app-container');
+            if (loginContainer) loginContainer.style.display = 'flex';
+            if (appContainer) appContainer.style.display = 'none';
+        }
+
+        /**
+         * Shows main application
+         */
+        function showMainApp() {
+            const loginContainer = document.getElementById('login-container');
+            const appContainer = document.getElementById('app-container');
+            if (loginContainer) loginContainer.style.display = 'none';
+            if (appContainer) appContainer.style.display = 'flex';
+        }
+
+        /**
+         * Handles Google login
+         */
+        async function handleGoogleLogin() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            const loginLoading = document.getElementById('login-loading');
+            
+            try {
+                if (loginLoading) loginLoading.style.display = 'block';
+                setButtonLoading('google-login', true);
+                
+                await firebase.auth().signInWithPopup(provider);
+                showSuccess('Accesso effettuato con successo!');
+            } catch (error) {
+                console.error('Errore durante il login:', error);
+                showError('Errore durante il login: ' + error.message);
+            } finally {
+                if (loginLoading) loginLoading.style.display = 'none';
+                setButtonLoading('google-login', false);
+            }
+        }
+
+        /**
+         * Logs out user
+         */
+        async function logout() {
+            if (confirm('Sei sicuro di voler uscire dall\'applicazione?')) {
+                try {
+                    await firebase.auth().signOut();
+                    showSuccess('Logout effettuato con successo');
+                } catch (error) {
+                    console.error('Errore durante il logout:', error);
+                    showError('Errore durante il logout: ' + error.message);
+                }
+            }
+        }
+
+        /**
+         * Checks authentication state
+         */
+        function checkAuthState() {
+            console.log('Controllo stato autenticazione...');
+            
+            firebase.auth().onAuthStateChanged((user) => {
+                console.log('Stato autenticazione cambiato:', user ? 'Utente loggato' : 'Utente non loggato');
+                
+                if (user) {
+                    showMainApp();
+                    loadAllData();
+                } else {
+                    showLoginScreen();
+                    // Force reload if cache issues
+                    setTimeout(() => {
+                        if (!firebase.auth().currentUser) {
+                            console.log('Nessun utente autenticato, mostrando login');
+                        }
+                    }, 1000);
+                }
+            }, (error) => {
+                console.error('Errore nell\'observer di autenticazione:', error);
+                showLoginScreen();
+            });
+        }
+
+        // ==================== DATA MANAGEMENT ====================
+
+        /**
+         * Loads all data from Firestore
+         */
+        async function loadAllData() {
+            showLoading('Caricamento dati...');
+            
+            try {
+                const [workersSnapshot, dpiSnapshot, deliveriesSnapshot] = await Promise.all([
+                    db.collection('lavoratori').get(),
+                    db.collection('dpi').get(),
+                    db.collection('consegne').get()
+                ]);
+                
+                // Process workers data
+                const workersData = workersSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    nome: doc.data().nome || '',
+                    cognome: doc.data().cognome || '',
+                    matricola: doc.data().matricola || '',
+                    reparto: doc.data().reparto || '',
+                    mansione: doc.data().mansione || ''
+                }));
+                
+                // Process DPI data
+                const dpiData = dpiSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        nome: data.nome || '',
+                        sap: data.sap || data.codiceSap || '',
+                        categoria: data.categoria || '',
+                        scadenza: data.scadenza || null,
+                        note: data.note || ''
+                    };
+                });
+                
+                // Process deliveries data
+                const deliveriesData = deliveriesSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        lavoratore: data.lavoratore || '',
+                        lavoratoreText: data.lavoratoreText || '',
+                        dpi: data.dpi || '',
+                        dpiText: data.dpiText || '',
+                        quantita: data.quantita || 1,
+                        data: data.data || '',
+                        motivo: data.motivo || 'primo',
+                        firmaPreposto: data.firmaPreposto || '',
+                        firmaLavoratore: data.firmaLavoratore || ''
+                    };
+                });
+                
+                // Update application state
+                AppState.setWorkers(workersData);
+                AppState.setDpiList(dpiData);
+                AppState.setDeliveries(deliveriesData);
+                
+                // Update UI
+                loadWorkers();
+                loadDPI();
+                loadDPIForDelivery();
+                updateDashboard();
+                
+            } catch (error) {
+                console.error('❌ Errore caricamento dati:', error);
+                showError('Errore nel caricamento dei dati: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ==================== WORKER MANAGEMENT ====================
+
+        /**
+         * Loads workers into the table
+         */
+        function loadWorkers() {
+            const tbody = document.getElementById('workers-table-body');
+            if (!tbody) {
+                console.warn('Elemento workers-table-body non trovato');
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            const workers = AppState.getWorkers();
+            
+            if (workers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">Nessun lavoratore registrato</td></tr>';
+                return;
+            }
+            
+            workers.forEach((worker, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${worker.nome}</td>
+                    <td>${worker.cognome}</td>
+                    <td>${worker.matricola}</td>
+                    <td>${worker.reparto || '-'}</td>
+                    <td>${worker.mansione || '-'}</td>
+                    <td>
+                        <button class="btn warning" onclick="selectWorker(${index})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn danger" onclick="removeWorker(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        /**
+         * Adds a new worker
+         */
+        async function addWorker() {
+            setButtonLoading('add-worker-btn', true);
+            
+            try {
+                const nome = document.getElementById('nome').value.trim();
+                const cognome = document.getElementById('cognome').value.trim();
+                const matricola = document.getElementById('matricola').value.trim();
+                const reparto = document.getElementById('reparto').value.trim();
+                const mansione = document.getElementById('mansione').value.trim();
+                
+                // Validation
+                if (!nome || !cognome || !matricola) {
+                    showError('Nome, cognome e matricola sono obbligatori!');
+                    return;
+                }
+                
+                const workers = AppState.getWorkers();
+                if (workers.some(w => w.matricola === matricola)) {
+                    showError('Matricola già esistente!');
+                    return;
+                }
+                
+                // Create new worker
+                const newWorker = { nome, cognome, matricola, reparto, mansione };
+                const docRef = await db.collection('lavoratori').add(newWorker);
+                newWorker.id = docRef.id;
+                
+                // Update state and UI
+                AppState.setWorkers([...workers, newWorker]);
+                
+                // Clear form
+                document.getElementById('nome').value = '';
+                document.getElementById('cognome').value = '';
+                document.getElementById('matricola').value = '';
+                document.getElementById('reparto').value = '';
+                document.getElementById('mansione').value = '';
+                
+                loadWorkers();
+                showSuccess('Lavoratore aggiunto con successo!');
+            } catch (error) {
+                console.error('Errore aggiunta lavoratore:', error);
+                showError('Errore durante il salvataggio: ' + error.message);
+            } finally {
+                setButtonLoading('add-worker-btn', false);
+            }
+        }
+
+        /**
+         * Selects worker for editing
+         */
+        function selectWorker(index) {
+            const workers = AppState.getWorkers();
+            const worker = workers[index];
+            document.getElementById('nome').value = worker.nome || '';
+            document.getElementById('cognome').value = worker.cognome || '';
+            document.getElementById('matricola').value = worker.matricola || '';
+            document.getElementById('reparto').value = worker.reparto || '';
+            document.getElementById('mansione').value = worker.mansione || '';
+            AppState.setSelectedWorkerIndex(index);
+        }
+
+        /**
+         * Edits selected worker
+         */
+        async function editWorker() {
+            setButtonLoading('edit-worker-btn', true);
+            
+            try {
+                const selectedIndex = AppState.getSelectedWorkerIndex();
+                if (selectedIndex === -1) {
+                    showError('Seleziona un lavoratore da modificare!');
+                    return;
+                }
+                
+                const nome = document.getElementById('nome').value.trim();
+                const cognome = document.getElementById('cognome').value.trim();
+                const matricola = document.getElementById('matricola').value.trim();
+                const reparto = document.getElementById('reparto').value.trim();
+                const mansione = document.getElementById('mansione').value.trim();
+                
+                // Validation
+                if (!nome || !cognome || !matricola) {
+                    showError('Nome, cognome e matricola sono obbligatori!');
+                    return;
+                }
+                
+                const workers = AppState.getWorkers();
+                if (workers.some((w, i) => w.matricola === matricola && i !== selectedIndex)) {
+                    showError('Matricola già esistente!');
+                    return;
+                }
+                
+                // Update worker
+                const updatedWorker = { nome, cognome, matricola, reparto, mansione };
+                await db.collection('lavoratori').doc(workers[selectedIndex].id).update(updatedWorker);
+                
+                const updatedWorkers = [...workers];
+                updatedWorkers[selectedIndex] = { ...updatedWorker, id: workers[selectedIndex].id };
+                AppState.setWorkers(updatedWorkers);
+                
+                // Clear form and reset selection
+                document.getElementById('nome').value = '';
+                document.getElementById('cognome').value = '';
+                document.getElementById('matricola').value = '';
+                document.getElementById('reparto').value = '';
+                document.getElementById('mansione').value = '';
+                
+                AppState.setSelectedWorkerIndex(-1);
+                loadWorkers();
+                showSuccess('Lavoratore modificato con successo!');
+            } catch (error) {
+                console.error('Errore modifica lavoratore:', error);
+                showError('Errore durante la modifica: ' + error.message);
+            } finally {
+                setButtonLoading('edit-worker-btn', false);
+            }
+        }
+
+        /**
+         * Removes a worker
+         */
+        async function removeWorker(index) {
+            if (!confirm('Sei sicuro di voler cancellare questo lavoratore?')) return;
+            
+            setButtonLoading('delete-worker-btn', true);
+            
+            try {
+                const workers = AppState.getWorkers();
+                await db.collection('lavoratori').doc(workers[index].id).delete();
+                
+                const updatedWorkers = workers.filter((_, i) => i !== index);
+                AppState.setWorkers(updatedWorkers);
+                
+                loadWorkers();
+                showSuccess('Lavoratore cancellato con successo!');
+            } catch (error) {
+                console.error('Errore cancellazione lavoratore:', error);
+                showError('Errore durante la cancellazione: ' + error.message);
+            } finally {
+                setButtonLoading('delete-worker-btn', false);
+            }
+        }
+
+        // ==================== DPI MANAGEMENT ====================
+
+        /**
+         * Loads DPI into the table
+         */
+        function loadDPI() {
+            const tbody = document.getElementById('dpi-table-body');
+            if (!tbody) {
+                console.warn('Elemento dpi-table-body non trovato');
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            const dpiList = AppState.getDpiList();
+            
+            if (dpiList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">Nessun DPI registrato</td></tr>';
+                return;
+            }
+            
+            dpiList.forEach((dpi, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${dpi.nome}</td>
+                    <td>${dpi.sap}</td>
+                    <td>${dpi.categoria}</td>
+                    <td>${dpi.scadenza || '-'}</td>
+                    <td>${dpi.note || '-'}</td>
+                    <td>
+                        <button class="btn warning" onclick="selectDPI(${index})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn danger" onclick="removeDPI(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        /**
+         * Adds a new DPI
+         */
+        async function addDPI() {
+            setButtonLoading('add-dpi-btn', true);
+            
+            try {
+                const nome = document.getElementById('nome-dpi').value.trim();
+                const sap = document.getElementById('codice-sap').value.trim();
+                const categoria = document.getElementById('categoria').value;
+                const scadenza = document.getElementById('scadenza').value;
+                const note = document.getElementById('note-dpi').value.trim();
+                
+                // Validation
+                if (!nome || !sap || !categoria) {
+                    showError('Nome, codice SAP e categoria sono obbligatori!');
+                    return;
+                }
+                
+                const dpiList = AppState.getDpiList();
+                if (dpiList.some(d => d.sap === sap)) {
+                    showError('Codice SAP già esistente!');
+                    return;
+                }
+                
+                // Create new DPI
+                const newDPI = { nome, sap, categoria, scadenza: scadenza ? parseInt(scadenza) : null, note };
+                const docRef = await db.collection('dpi').add(newDPI);
+                newDPI.id = docRef.id;
+                
+                // Update state and UI
+                AppState.setDpiList([...dpiList, newDPI]);
+                
+                // Clear form
+                document.getElementById('nome-dpi').value = '';
+                document.getElementById('codice-sap').value = '';
+                document.getElementById('categoria').value = '';
+                document.getElementById('scadenza').value = '';
+                document.getElementById('note-dpi').value = '';
+                
+                loadDPI();
+                loadDPIForDelivery();
+                showSuccess('DPI aggiunto con successo!');
+            } catch (error) {
+                console.error('Errore aggiunta DPI:', error);
+                showError('Errore durante il salvataggio: ' + error.message);
+            } finally {
+                setButtonLoading('add-dpi-btn', false);
+            }
+        }
+
+        /**
+         * Selects DPI for editing
+         */
+        function selectDPI(index) {
+            const dpiList = AppState.getDpiList();
+            const dpi = dpiList[index];
+            document.getElementById('nome-dpi').value = dpi.nome || '';
+            document.getElementById('codice-sap').value = dpi.sap || '';
+            document.getElementById('categoria').value = dpi.categoria || '';
+            document.getElementById('scadenza').value = dpi.scadenza || '';
+            document.getElementById('note-dpi').value = dpi.note || '';
+            AppState.setSelectedDPIIndex(index);
+        }
+
+        /**
+         * Edits selected DPI
+         */
+        async function editDPI() {
+            setButtonLoading('edit-dpi-btn', true);
+            
+            try {
+                const selectedIndex = AppState.getSelectedDPIIndex();
+                if (selectedIndex === -1) {
+                    showError('Seleziona un DPI da modificare!');
+                    return;
+                }
+                
+                const nome = document.getElementById('nome-dpi').value.trim();
+                const sap = document.getElementById('codice-sap').value.trim();
+                const categoria = document.getElementById('categoria').value;
+                const scadenza = document.getElementById('scadenza').value;
+                const note = document.getElementById('note-dpi').value.trim();
+                
+                // Validation
+                if (!nome || !sap || !categoria) {
+                    showError('Nome, codice SAP e categoria sono obbligatori!');
+                    return;
+                }
+                
+                const dpiList = AppState.getDpiList();
+                if (dpiList.some((d, i) => d.sap === sap && i !== selectedIndex)) {
+                    showError('Codice SAP già esistente!');
+                    return;
+                }
+                
+                // Update DPI
+                const updatedDPI = { nome, sap, categoria, scadenza: scadenza ? parseInt(scadenza) : null, note };
+                await db.collection('dpi').doc(dpiList[selectedIndex].id).update(updatedDPI);
+                
+                const updatedDpiList = [...dpiList];
+                updatedDpiList[selectedIndex] = { ...updatedDPI, id: dpiList[selectedIndex].id };
+                AppState.setDpiList(updatedDpiList);
+                
+                // Clear form and reset selection
+                document.getElementById('nome-dpi').value = '';
+                document.getElementById('codice-sap').value = '';
+                document.getElementById('categoria').value = '';
+                document.getElementById('scadenza').value = '';
+                document.getElementById('note-dpi').value = '';
+                
+                AppState.setSelectedDPIIndex(-1);
+                loadDPI();
+                loadDPIForDelivery();
+                showSuccess('DPI modificato con successo!');
+            } catch (error) {
+                console.error('Errore modifica DPI:', error);
+                showError('Errore durante la modifica: ' + error.message);
+            } finally {
+                setButtonLoading('edit-dpi-btn', false);
+            }
+        }
+
+        /**
+         * Removes a DPI
+         */
+        async function removeDPI(index) {
+            if (!confirm('Sei sicuro di voler cancellare questo DPI?')) return;
+            
+            setButtonLoading('delete-dpi-btn', true);
+            
+            try {
+                const dpiList = AppState.getDpiList();
+                await db.collection('dpi').doc(dpiList[index].id).delete();
+                
+                const updatedDpiList = dpiList.filter((_, i) => i !== index);
+                AppState.setDpiList(updatedDpiList);
+                
+                loadDPI();
+                loadDPIForDelivery();
+                showSuccess('DPI cancellato con successo!');
+            } catch (error) {
+                console.error('Errore cancellazione DPI:', error);
+                showError('Errore durante la cancellazione: ' + error.message);
+            } finally {
+                setButtonLoading('delete-dpi-btn', false);
+            }
+        }
+
+        // ==================== DELIVERY MANAGEMENT ====================
+
+        /**
+         * Loads DPI for delivery selection
+         */
+        function loadDPIForDelivery() {
+            const select = document.getElementById('select-dpi');
+            if (!select) {
+                console.warn('Elemento select-dpi non trovato');
+                return;
+            }
+            
+            select.innerHTML = '<option value="">Seleziona DPI</option>';
+            const dpiList = AppState.getDpiList();
+            
+            dpiList.forEach(dpi => {
+                const option = document.createElement('option');
+                option.value = dpi.sap;
+                option.textContent = `${dpi.nome} (${dpi.sap})`;
+                select.appendChild(option);
+            });
+        }
+
+        /**
+         * Sets today's date in date field
+         */
+        function setTodayDate() {
+            const dateInput = document.getElementById('data-consegna');
+            if (dateInput) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+        }
+
+        /**
+         * Filters workers for search dropdown
+         */
+        function filterWorkers(searchInputId) {
+            const searchTerm = document.getElementById(searchInputId).value.toLowerCase();
+            const dropdownId = searchInputId === 'search-lavoratore' ? 'worker-dropdown' : 'worker-dropdown-stampa';
+            const dropdown = document.getElementById(dropdownId);
+            
+            if (!dropdown) return;
+            
+            dropdown.innerHTML = '';
+            
+            if (!searchTerm) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            const workers = AppState.getWorkers();
+            const filteredWorkers = workers.filter(worker => 
+                (worker.nome && worker.nome.toLowerCase().includes(searchTerm)) ||
+                (worker.cognome && worker.cognome.toLowerCase().includes(searchTerm)) ||
+                (worker.matricola && worker.matricola.toLowerCase().includes(searchTerm))
+            );
+            
+            if (filteredWorkers.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            filteredWorkers.forEach(worker => {
+                const item = document.createElement('div');
+                item.className = 'worker-dropdown-item';
+                item.textContent = `${worker.cognome} ${worker.nome} (${worker.matricola})`;
+                item.onclick = function() {
+                    document.getElementById(searchInputId).value = `${worker.cognome} ${worker.nome} (${worker.matricola})`;
+                    dropdown.style.display = 'none';
+                };
+                dropdown.appendChild(item);
+            });
+            
+            dropdown.style.display = 'block';
+        }
+
+        /**
+         * Validates signatures
+         */
+        function validateSignatures() {
+            const canvasPreposto = document.getElementById('firma-preposto');
+            const canvasLavoratore = document.getElementById('firma-lavoratore');
+            
+            const prepostoValid = !isCanvasEmpty(canvasPreposto);
+            const lavoratoreValid = !isCanvasEmpty(canvasLavoratore);
+            
+            AppState.setHasSignedPreposto(prepostoValid);
+            AppState.setHasSignedLavoratore(lavoratoreValid);
+            
+            return {
+                preposto: prepostoValid,
+                lavoratore: lavoratoreValid
+            };
+        }
+
+        /**
+         * Adds item to current delivery
+         */
+        function addToDelivery() {
+            setButtonLoading('add-delivery-btn', true);
+            
+            try {
+                let isValid = true;
+                const errorMessages = {
+                    lavoratore: document.getElementById('error-lavoratore'),
+                    dpi: document.getElementById('error-dpi'),
+                    quantita: document.getElementById('error-quantita'),
+                    data: document.getElementById('error-data')
+                };
+
+                // Clear previous errors
+                Object.values(errorMessages).forEach(el => {
+                    if (el) el.textContent = '';
+                });
+
+                // Get form values
+                const searchInput = document.getElementById('search-lavoratore').value;
+                const dpiSap = document.getElementById('select-dpi').value;
+                const quantita = parseInt(document.getElementById('quantita').value);
+                const data = document.getElementById('data-consegna').value;
+                const motivo = document.getElementById('motivo').value;
+
+                // Extract worker matricola
+                const workerMatch = searchInput.match(/\(([^)]+)\)/);
+                const matricola = workerMatch ? workerMatch[1] : '';
+                const workers = AppState.getWorkers();
+                const worker = workers.find(w => w.matricola === matricola);
+
+                // Validation
+                if (!worker) {
+                    if (errorMessages.lavoratore) errorMessages.lavoratore.textContent = 'Seleziona un lavoratore valido';
+                    isValid = false;
+                }
+
+                if (!dpiSap) {
+                    if (errorMessages.dpi) errorMessages.dpi.textContent = 'Seleziona un DPI';
+                    isValid = false;
+                }
+
+                if (!quantita || quantita < 1) {
+                    if (errorMessages.quantita) errorMessages.quantita.textContent = 'Inserisci una quantità valida';
+                    isValid = false;
+                }
+
+                if (!data) {
+                    if (errorMessages.data) errorMessages.data.textContent = 'Seleziona una data';
+                    isValid = false;
+                }
+
+                const signatures = validateSignatures();
+                if (!signatures.preposto) {
+                    const errorPreposto = document.getElementById('error-firma-preposto');
+                    if (errorPreposto) errorPreposto.textContent = 'Firma del preposto richiesta';
+                    isValid = false;
+                }
+
+                if (!signatures.lavoratore) {
+                    const errorLavoratore = document.getElementById('error-firma-lavoratore');
+                    if (errorLavoratore) errorLavoratore.textContent = 'Firma del lavoratore richiesta';
+                    isValid = false;
+                }
+
+                if (!isValid) return;
+
+                // Get DPI details
+                const dpiList = AppState.getDpiList();
+                const dpiItem = dpiList.find(d => d.sap === dpiSap);
+                const lavoratoreText = `${worker.cognome} ${worker.nome}`;
+                const dpiText = dpiItem ? dpiItem.nome : dpiSap;
+
+                // Get signatures as base64
+                const canvasPreposto = document.getElementById('firma-preposto');
+                const canvasLavoratore = document.getElementById('firma-lavoratore');
+                const firmaPreposto = canvasPreposto.toDataURL();
+                const firmaLavoratore = canvasLavoratore.toDataURL();
+
+                // Create delivery item
+                const deliveryItem = {
+                    lavoratore: worker.matricola,
+                    lavoratoreText,
+                    dpi: dpiSap,
+                    dpiText,
+                    quantita,
+                    data,
+                    motivo,
+                    firmaPreposto,
+                    firmaLavoratore
+                };
+
+                // Add to current delivery
+                AppState.addToCurrentDelivery(deliveryItem);
+                renderDeliveryTable();
+
+                // Clear signatures
+                clearSignature('firma-preposto');
+                clearSignature('firma-lavoratore');
+                showSuccess('Item aggiunto alla consegna!');
+            } catch (error) {
+                console.error('Errore aggiunta alla consegna:', error);
+                showError('Errore durante l\'aggiunta: ' + error.message);
+            } finally {
+                setButtonLoading('add-delivery-btn', false);
+            }
+        }
+
+        /**
+         * Renders delivery table
+         */
+        function renderDeliveryTable() {
+            const tbody = document.getElementById('delivery-table-body');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            const currentDelivery = AppState.getCurrentDelivery();
+
+            currentDelivery.forEach((item, index) => {
+                const codiceSap = getSapCodeFromDpiField(item.dpi);
+                const dpiName = getDpiNameFromDpiField(item.dpi);
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${item.lavoratoreText}</td>
+                    <td>${dpiName}</td>
+                    <td>${codiceSap}</td>
+                    <td>${item.quantita}</td>
+                    <td>${item.data}</td>
+                    <td>${getReasonText(item.motivo)}</td>
+                    <td><img src="${item.firmaPreposto}" class="signature-preview" alt="Firma Preposto"></td>
+                    <td><img src="${item.firmaLavoratore}" class="signature-preview" alt="Firma Lavoratore"></td>
+                    <td>
+                        <button class="btn danger" onclick="removeFromDelivery(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        /**
+         * Removes item from delivery
+         */
+        function removeFromDelivery(index) {
+            if (confirm('Rimuovere questo item dalla consegna?')) {
+                AppState.removeFromCurrentDelivery(index);
+                renderDeliveryTable();
+            }
+        }
+
+        /**
+         * Saves delivery to Firestore
+         */
+        async function saveDelivery() {
+            setButtonLoading('save-delivery-btn', true);
+            
+            try {
+                const currentDelivery = AppState.getCurrentDelivery();
+                if (currentDelivery.length === 0) {
+                    showError('Nessun item da salvare nella consegna!');
+                    return;
+                }
+
+                // Save all items to Firestore
+                const savePromises = currentDelivery.map(item => 
+                    db.collection('consegne').add(item)
+                );
+                
+                await Promise.all(savePromises);
+                
+                // Reload deliveries
+                const deliveriesSnapshot = await db.collection('consegne').get();
+                const deliveriesData = deliveriesSnapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data() 
+                }));
+                
+                // Update state and UI
+                AppState.setDeliveries(deliveriesData);
+                AppState.clearCurrentDelivery();
+                renderDeliveryTable();
+                updateDashboard();
+                showSuccess('Consegna salvata con successo!');
+            } catch (error) {
+                console.error('Errore salvataggio consegna:', error);
+                showError('Errore durante il salvataggio: ' + error.message);
+            } finally {
+                setButtonLoading('save-delivery-btn', false);
+            }
+        }
+
+        /**
+         * Gets reason text from code
+         */
+        function getReasonText(reason) {
+            switch(reason) {
+                case 'primo': return 'Primo Prelievo';
+                case 'danneggiato': return 'Danneggiato';
+                case 'scaduto': return 'Scaduto';
+                default: return reason;
+            }
+        }
+
+        /**
+         * Clears delivery form fields
+         */
+        function clearDeliveryFields() {
+            document.getElementById('search-lavoratore').value = '';
+            document.getElementById('select-dpi').value = '';
+            document.getElementById('quantita').value = '1';
+            setTodayDate();
+            document.getElementById('motivo').value = 'primo';
+            clearSignature('firma-preposto');
+            clearSignature('firma-lavoratore');
+        }
+
+        // ==================== PRINT & EXPORT MANAGEMENT ====================
+
+        /**
+         * Toggles content type for printing
+         */
+        function toggleContentType() {
+            const tipoContenuto = document.getElementById('tipo-contenuto').value;
+            const lavoratoreField = document.getElementById('lavoratore-field');
+            if (lavoratoreField) {
+                lavoratoreField.style.display = tipoContenuto === 'lavoratore' ? 'flex' : 'none';
+            }
+        }
+
+        /**
+         * Loads deliveries for printing
+         */
+        function loadDeliveriesForPrint() {
+            setButtonLoading('load-print-btn', true);
+            
+            try {
+                const tipoContenuto = document.getElementById('tipo-contenuto').value;
+                const searchInput = document.getElementById('search-lavoratore-stampa').value;
+                const dataInizio = document.getElementById('data-inizio').value;
+                const dataFine = document.getElementById('data-fine').value;
+
+                let lavoratoreId = '';
+                if (tipoContenuto === 'lavoratore') {
+                    if (searchInput) {
+                        const workerMatch = searchInput.match(/\(([^)]+)\)/);
+                        if (workerMatch) {
+                            lavoratoreId = workerMatch[1];
+                        } else {
+                            const workers = AppState.getWorkers();
+                            const worker = workers.find(w => 
+                                `${w.cognome} ${w.nome}`.includes(searchInput) || 
+                                w.matricola.includes(searchInput)
+                            );
+                            if (worker) {
+                                lavoratoreId = worker.matricola;
+                                document.getElementById('search-lavoratore-stampa').value = 
+                                    `${worker.cognome} ${worker.nome} (${worker.matricola})`;
+                            }
+                        }
+                    }
+                }
+
+                // Filter deliveries
+                const deliveries = AppState.getDeliveries();
+                const filteredDeliveries = deliveries.filter(delivery => {
+                    if (tipoContenuto === 'lavoratore') {
+                        if (!lavoratoreId) {
+                            showError('Seleziona un lavoratore valido');
+                            return false;
+                        }
+                        if (delivery.lavoratore !== lavoratoreId) return false;
+                    }
+                    
+                    if (dataInizio && delivery.data < dataInizio) return false;
+                    if (dataFine && delivery.data > dataFine) return false;
+                    
+                    return true;
+                });
+
+                AppState.setPrintDeliveries(filteredDeliveries);
+
+                if (filteredDeliveries.length === 0) {
+                    showError('Nessuna consegna trovata con i filtri selezionati');
+                    const deliveriesContainer = document.getElementById('deliveries-container');
+                    if (deliveriesContainer) deliveriesContainer.style.display = 'none';
+                    return;
+                }
+
+                renderPrintDeliveriesTable();
+                const deliveriesContainer = document.getElementById('deliveries-container');
+                if (deliveriesContainer) deliveriesContainer.style.display = 'block';
+                showSuccess(`Trovate ${filteredDeliveries.length} consegne`);
+            } catch (error) {
+                console.error('Errore caricamento consegne per stampa:', error);
+                showError('Errore durante il caricamento delle consegne');
+            } finally {
+                setButtonLoading('load-print-btn', false);
+            }
+        }
+
+        /**
+         * Renders print deliveries table
+         */
+        function renderPrintDeliveriesTable() {
+            const tbody = document.getElementById('print-deliveries-body');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            const printDeliveries = AppState.getPrintDeliveries();
+            const workers = AppState.getWorkers();
+            
+            printDeliveries.forEach((delivery, index) => {
+                let lavoratoreText = delivery.lavoratoreText;
+                
+                if (!lavoratoreText || lavoratoreText === delivery.lavoratore) {
+                    const worker = workers.find(w => w.matricola === delivery.lavoratore);
+                    lavoratoreText = worker ? `${worker.cognome} ${worker.nome}` : delivery.lavoratore;
+                }
+                
+                const codiceSap = getSapCodeFromDpiField(delivery.dpi);
+                const dpiName = getDpiNameFromDpiField(delivery.dpi);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="checkbox" class="print-delivery-checkbox" data-index="${index}"></td>
+                    <td>${lavoratoreText}</td>
+                    <td>${dpiName}</td>
+                    <td>${codiceSap}</td>
+                    <td>${delivery.quantita}</td>
+                    <td>${delivery.data}</td>
+                    <td>${getReasonText(delivery.motivo)}</td>
+                    <td><img src="${delivery.firmaPreposto}" class="print-signature-preview" alt="Firma Preposto"></td>
+                    <td><img src="${delivery.firmaLavoratore}" class="print-signature-preview" alt="Firma Lavoratore"></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        /**
+         * Toggles select all for print
+         */
+        function toggleSelectAllPrint() {
+            const selectAll = document.getElementById('select-all-print');
+            if (!selectAll) return;
+            
+            const isChecked = selectAll.checked;
+            const checkboxes = document.querySelectorAll('.print-delivery-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        }
+
+        /**
+         * Deletes selected deliveries
+         */
+        async function deleteSelectedDeliveries() {
+            const checkboxes = document.querySelectorAll('.print-delivery-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showError('Seleziona almeno una consegna da eliminare');
+                return;
+            }
+            
+            if (!confirm(`Sei sicuro di voler eliminare ${checkboxes.length} consegna(e)?`)) return;
+            
+            setButtonLoading('delete-selected-btn', true);
+            
+            try {
+                const indicesToDelete = Array.from(checkboxes).map(checkbox => 
+                    parseInt(checkbox.getAttribute('data-index'))
+                ).sort((a, b) => b - a);
+                
+                const printDeliveries = AppState.getPrintDeliveries();
+                const deletePromises = indicesToDelete.map(index => 
+                    db.collection('consegne').doc(printDeliveries[index].id).delete()
+                );
+                
+                await Promise.all(deletePromises);
+                
+                // Reload data
+                const deliveriesSnapshot = await db.collection('consegne').get();
+                const deliveriesData = deliveriesSnapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data() 
+                }));
+                
+                AppState.setDeliveries(deliveriesData);
+                loadDeliveriesForPrint();
+                updateDashboard();
+                
+                showSuccess(`${indicesToDelete.length} consegna(e) eliminate con successo`);
+            } catch (error) {
+                console.error('Errore eliminazione consegne:', error);
+                showError('Errore durante l\'eliminazione: ' + error.message);
+            } finally {
+                setButtonLoading('delete-selected-btn', false);
+            }
+        }
+
+        /**
+         * Prints PDF
+         */
+        function printPDF() {
+            setButtonLoading('print-pdf-btn', true);
+            
+            try {
+                const checkboxes = document.querySelectorAll('.print-delivery-checkbox');
+                const selectedIndices = Array.from(checkboxes)
+                    .map((checkbox, index) => checkbox.checked ? index : -1)
+                    .filter(index => index !== -1);
+                
+                const printDeliveries = AppState.getPrintDeliveries();
+                const deliveriesToPrint = selectedIndices.length > 0 ? 
+                    selectedIndices.map(index => printDeliveries[index]) : 
+                    printDeliveries;
+                
+                if (deliveriesToPrint.length === 0) {
+                    showError('Nessuna consegna da stampare');
+                    return;
+                }
+                
+                generatePDF(deliveriesToPrint);
+                showSuccess('PDF generato con successo!');
+            } catch (error) {
+                console.error('Errore generazione PDF:', error);
+                showError('Errore durante la generazione del PDF');
+            } finally {
+                setButtonLoading('print-pdf-btn', false);
+            }
+        }
+
+        /**
+         * Generates PDF document
+         */
+        function generatePDF(deliveriesToPrint) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            const settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+            const companyName = settings.companyName || 'Nome Azienda';
+            const useLogo = settings.useLogoOnPrint && settings.logo;
+            
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            let yPosition = margin;
+            
+            // Company header
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text(companyName, margin, yPosition + 10);
+            
+            // Logo handling
+            if (useLogo) {
+                try {
+                    const logoImg = new Image();
+                    logoImg.onload = function() {
+                        const logoWidth = 25;
+                        const logoHeight = 15;
+                        const logoX = pageWidth - margin - logoWidth;
+                        const logoY = yPosition;
+                        doc.addImage(settings.logo, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+                        yPosition += 20;
+                        generatePDFContent();
+                    };
+                    logoImg.src = settings.logo;
+                } catch (error) {
+                    console.error('Errore nel caricamento del logo:', error);
+                    yPosition += 20;
+                    generatePDFContent();
+                }
+            } else {
+                yPosition += 20;
+                generatePDFContent();
+            }
+            
+            function generatePDFContent() {
+                // Title section
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                yPosition += 10;
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('Elenco Consegne DPI', margin, yPosition);
+                yPosition += 8;
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Generato il: ${new Date().toLocaleDateString('it-IT')}`, pageWidth - margin, yPosition - 5, { align: 'right' });
+                yPosition += 5;
+                
+                // Table headers
+                const headers = ['Lavoratore', 'DPI', 'Codice SAP', 'Quantità', 'Data', 'Motivo', 'Firma Preposto', 'Firma Lavoratore'];
+                const columnWidths = [28, 32, 22, 15, 18, 20, 25, 25];
+                const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+                const tableStartX = margin;
+                
+                doc.setFillColor(52, 152, 219);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(8);
+                
+                let xPosition = tableStartX;
+                headers.forEach((header, i) => {
+                    doc.rect(xPosition, yPosition, columnWidths[i], 8, 'F');
+                    const textWidth = doc.getTextWidth(header);
+                    const textX = xPosition + (columnWidths[i] - textWidth) / 2;
+                    doc.text(header, textX, yPosition + 5);
+                    xPosition += columnWidths[i];
+                });
+                
+                yPosition += 8;
+                
+                // Table content
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(7);
+                
+                const rowHeight = 18;
+                const workers = AppState.getWorkers();
+
+                deliveriesToPrint.forEach((delivery, index) => {
+                    // New page if needed
+                    if (yPosition > 270 - rowHeight) {
+                        doc.addPage();
+                        yPosition = margin;
+                        
+                        // Repeat headers
+                        doc.setFillColor(52, 152, 219);
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFont(undefined, 'bold');
+                        doc.setFontSize(8);
+                        
+                        xPosition = tableStartX;
+                        headers.forEach((header, i) => {
+                            doc.rect(xPosition, yPosition, columnWidths[i], 8, 'F');
+                            const textWidth = doc.getTextWidth(header);
+                            const textX = xPosition + (columnWidths[i] - textWidth) / 2;
+                            doc.text(header, textX, yPosition + 5);
+                            xPosition += columnWidths[i];
+                        });
+                        
+                        yPosition += 8;
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFontSize(7);
+                    }
+                    
+                    // Alternate row colors
+                    if (index % 2 === 0) doc.setFillColor(248, 248, 248);
+                    else doc.setFillColor(255, 255, 255);
+                    
+                    // Draw row background
+                    xPosition = tableStartX;
+                    columnWidths.forEach(width => {
+                        doc.rect(xPosition, yPosition, width, rowHeight, 'F');
+                        xPosition += width;
+                    });
+                    
+                    xPosition = tableStartX;
+                    
+                    // Prepare data
+                    let lavoratoreDisplay = delivery.lavoratoreText || delivery.lavoratore;
+                    if (!delivery.lavoratoreText || delivery.lavoratoreText === delivery.lavoratore) {
+                        const worker = workers.find(w => w.matricola === delivery.lavoratore);
+                        lavoratoreDisplay = worker ? `${worker.cognome} ${worker.nome}` : delivery.lavoratore;
+                    }
+
+                    const dpiDisplay = getDpiNameFromDpiField(delivery.dpi);
+                    const codiceSap = getSapCodeFromDpiField(delivery.dpi);
+                    
+                    const rowData = [
+                        lavoratoreDisplay,
+                        dpiDisplay,
+                        codiceSap,
+                        delivery.quantita.toString(),
+                        delivery.data,
+                        getReasonText(delivery.motivo)
+                    ];
+                    
+                    // Add text data
+                    rowData.forEach((text, i) => {
+                        const maxWidth = columnWidths[i] - 2;
+                        const lines = doc.splitTextToSize(text, maxWidth);
+                        const displayLines = lines.slice(0, 2);
+                        let lineY = yPosition + 4;
+                        
+                        displayLines.forEach(line => {
+                            doc.text(line, xPosition + 1, lineY);
+                            lineY += 3;
+                        });
+                        
+                        xPosition += columnWidths[i];
+                    });
+                    
+                    // Add preposto signature
+                    if (delivery.firmaPreposto) {
+                        try {
+                            doc.addImage(delivery.firmaPreposto, 'PNG', xPosition + 2, yPosition + 2, columnWidths[6] - 4, 12);
+                        } catch (e) {
+                            doc.text('N/A', xPosition + 2, yPosition + 8);
+                        }
+                    } else {
+                        doc.text('N/A', xPosition + 2, yPosition + 8);
+                    }
+                    xPosition += columnWidths[6];
+                    
+                    // Add lavoratore signature
+                    if (delivery.firmaLavoratore) {
+                        try {
+                            doc.addImage(delivery.firmaLavoratore, 'PNG', xPosition + 2, yPosition + 2, columnWidths[7] - 4, 12);
+                        } catch (e) {
+                            doc.text('N/A', xPosition + 2, yPosition + 8);
+                        }
+                    } else {
+                        doc.text('N/A', xPosition + 2, yPosition + 8);
+                    }
+                    
+                    yPosition += rowHeight;
+                });
+
+                // Table border
+                doc.setDrawColor(100, 100, 100);
+                doc.rect(tableStartX, yPosition - (deliveriesToPrint.length * rowHeight), tableWidth, deliveriesToPrint.length * rowHeight);
+                
+                // Page numbers
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text(`Pagina ${i} di ${pageCount}`, pageWidth - margin, 290, { align: 'right' });
+                }
+                
+                // Save PDF
+                const date = new Date().toISOString().split('T')[0];
+                doc.save(`consegne_dpi_${date}.pdf`);
+            }
+        }
+
+        /**
+         * Clears print fields
+         */
+        function clearPrintFields() {
+            document.getElementById('tipo-contenuto').value = 'lavoratore';
+            document.getElementById('search-lavoratore-stampa').value = '';
+            document.getElementById('data-inizio').value = '';
+            document.getElementById('data-fine').value = '';
+            const deliveriesContainer = document.getElementById('deliveries-container');
+            if (deliveriesContainer) deliveriesContainer.style.display = 'none';
+            const printDeliveriesBody = document.getElementById('print-deliveries-body');
+            if (printDeliveriesBody) printDeliveriesBody.innerHTML = '';
+            toggleContentType();
+        }
+
+        /**
+         * Migrates old deliveries to new format
+         */
+        async function migrateOldDeliveries() {
+            setButtonLoading('migrate-btn', true);
+            
+            try {
+                const deliveriesSnapshot = await db.collection('consegne').get();
+                const batch = db.batch();
+                let migratedCount = 0;
+                
+                const workers = AppState.getWorkers();
+                const dpiList = AppState.getDpiList();
+                
+                deliveriesSnapshot.forEach(doc => {
+                    const delivery = doc.data();
+                    let needsUpdate = false;
+                    const updates = {};
+                    
+                    // Worker migration
+                    if (!delivery.lavoratoreText || delivery.lavoratoreText === delivery.lavoratore) {
+                        const worker = workers.find(w => w.matricola === delivery.lavoratore);
+                        if (worker) {
+                            updates.lavoratoreText = `${worker.cognome} ${worker.nome}`;
+                            needsUpdate = true;
+                        } else {
+                            // Try to extract from text
+                            const workerMatch = delivery.lavoratore?.match(/\(([^)]+)\)/);
+                            if (workerMatch) {
+                                const matricola = workerMatch[1];
+                                const workerByMatricola = workers.find(w => w.matricola === matricola);
+                                if (workerByMatricola) {
+                                    updates.lavoratore = workerByMatricola.matricola;
+                                    updates.lavoratoreText = `${workerByMatricola.cognome} ${workerByMatricola.nome}`;
+                                    needsUpdate = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // DPI migration
+                    let dpiUpdated = false;
+                    const dpiBySap = dpiList.find(d => d.sap === delivery.dpi);
+                    if (dpiBySap) {
+                        if (!delivery.dpiText || delivery.dpiText !== dpiBySap.nome) {
+                            updates.dpiText = dpiBySap.nome;
+                            dpiUpdated = true;
+                            needsUpdate = true;
+                        }
+                    } else {
+                        // Search by document ID
+                        const dpiById = dpiList.find(d => d.id === delivery.dpi);
+                        if (dpiById) {
+                            updates.dpi = dpiById.sap;
+                            updates.dpiText = dpiById.nome;
+                            dpiUpdated = true;
+                            needsUpdate = true;
+                        } else {
+                            // Search in "dpi_timestamp_id" format
+                            if (delivery.dpi && typeof delivery.dpi === 'string' && delivery.dpi.startsWith('dpi_')) {
+                                const dpiByPartialId = dpiList.find(d => delivery.dpi.includes(d.id));
+                                if (dpiByPartialId) {
+                                    updates.dpi = dpiByPartialId.sap;
+                                    updates.dpiText = dpiByPartialId.nome;
+                                    dpiUpdated = true;
+                                    needsUpdate = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (needsUpdate) {
+                        batch.update(db.collection('consegne').doc(doc.id), updates);
+                        migratedCount++;
+                    }
+                });
+                
+                if (migratedCount > 0) {
+                    await batch.commit();
+                    showSuccess(`Migrazione completata! ${migratedCount} consegne aggiornate.`);
+                    
+                    // Reload data
+                    const updatedSnapshot = await db.collection('consegne').get();
+                    const deliveriesData = updatedSnapshot.docs.map(doc => ({ 
+                        id: doc.id, 
+                        ...doc.data() 
+                    }));
+                    
+                    AppState.setDeliveries(deliveriesData);
+                    
+                    // Reload print section if active
+                    if (document.getElementById('stampa-section').classList.contains('active')) {
+                        loadDeliveriesForPrint();
+                    }
+                } else {
+                    showSuccess('Nessuna consegna da migrare - tutte le consegne sono già aggiornate.');
+                }
+                
+            } catch (error) {
+                console.error('Errore durante la migrazione:', error);
+                showError('Errore durante la migrazione: ' + error.message);
+            } finally {
+                setButtonLoading('migrate-btn', false);
+            }
+        }
+
+        // ==================== DEBUG FUNCTIONS ====================
+
+        /**
+         * Debug function to check delivery data
+         */
+        function debugDeliveryData() {
+            console.log('=== DEBUG CONSEGNE ===');
+            const deliveries = AppState.getDeliveries();
+            const dpiList = AppState.getDpiList();
+            const workers = AppState.getWorkers();
+            
+            console.log('Totale consegne:', deliveries.length);
+            console.log('Totale DPI:', dpiList.length);
+            console.log('Totale lavoratori:', workers.length);
+            
+            deliveries.forEach((delivery, index) => {
+                console.log(`Consegna ${index + 1}:`, {
+                    id: delivery.id,
+                    lavoratore: delivery.lavoratore,
+                    lavoratoreText: delivery.lavoratoreText,
+                    dpi: delivery.dpi,
+                    dpiText: delivery.dpiText,
+                    nomeDPI: getDpiNameFromDpiField(delivery.dpi),
+                    sapCode: getSapCodeFromDpiField(delivery.dpi)
+                });
+            });
+            
+            console.log('Lista DPI disponibili:', dpiList);
+            console.log('=== FINE DEBUG ===');
+            showSuccess('Dati di debug visualizzati nella console (F12)');
+        }
+
+        // ==================== SIGNATURE MANAGEMENT ====================
+
+        /**
+         * Initializes signature canvases
+         */
+        function initSignatureCanvases() {
+            setTimeout(() => {
+                setupSignature(document.getElementById('firma-preposto'), 'preposto');
+                setupSignature(document.getElementById('firma-lavoratore'), 'lavoratore');
+            }, 100);
+        }
+
+        /**
+         * Sets up signature canvas
+         */
+        function setupSignature(canvas, type) {
+            if (!canvas) {
+                console.warn(`Canvas ${type} non trovato`);
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            
+            function getEventPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                if (e.touches && e.touches.length > 0) {
+                    return {
+                        x: (e.touches[0].clientX - rect.left) * scaleX,
+                        y: (e.touches[0].clientY - rect.top) * scaleY
+                    };
+                } else {
+                    return {
+                        x: (e.clientX - rect.left) * scaleX,
+                        y: (e.clientY - rect.top) * scaleY
+                    };
+                }
+            }
+            
+            // Mouse events
+            canvas.addEventListener('mousedown', (e) => {
+                isDrawing = true;
+                const pos = getEventPos(e);
+                lastX = pos.x;
+                lastY = pos.y;
+                type === 'preposto' ? AppState.setHasSignedPreposto(true) : AppState.setHasSignedLavoratore(true);
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                const pos = getEventPos(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                lastX = pos.x;
+                lastY = pos.y;
+            });
+            
+            canvas.addEventListener('mouseup', () => isDrawing = false);
+            canvas.addEventListener('mouseout', () => isDrawing = false);
+            
+            // Touch events
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isDrawing = true;
+                const pos = getEventPos(e);
+                lastX = pos.x;
+                lastY = pos.y;
+                type === 'preposto' ? AppState.setHasSignedPreposto(true) : AppState.setHasSignedLavoratore(true);
+            });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!isDrawing) return;
+                const pos = getEventPos(e);
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                lastX = pos.x;
+                lastY = pos.y;
+            });
+            
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isDrawing = false;
+            });
+        }
+
+        /**
+         * Clears signature canvas
+         */
+        function clearSignature(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvasId === 'firma-preposto' ? AppState.setHasSignedPreposto(false) : AppState.setHasSignedLavoratore(false);
+            }
+        }
+
+        /**
+         * Checks if canvas is empty
+         */
+        function isCanvasEmpty(canvas) {
+            if (!canvas) return true;
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                if (imageData.data[i + 3] !== 0) return false;
+            }
+            return true;
+        }
+
+        // ==================== DASHBOARD FUNCTIONS ====================
+
+        /**
+         * Updates dashboard statistics
+         */
+        function updateDashboard() {
+            const workers = AppState.getWorkers();
+            const dpiList = AppState.getDpiList();
+            const deliveries = AppState.getDeliveries();
+            
+            // Update counts
+            const activeWorkersCount = document.getElementById('active-workers-count');
+            const dpiStockCount = document.getElementById('dpi-stock-count');
+            const todayDeliveriesCount = document.getElementById('today-deliveries-count');
+            const expiringSoonCount = document.getElementById('expiring-soon-count');
+            
+            if (activeWorkersCount) activeWorkersCount.textContent = workers.length;
+            if (dpiStockCount) dpiStockCount.textContent = dpiList.length;
+            if (todayDeliveriesCount) todayDeliveriesCount.textContent = deliveries.length;
+            
+            // Calculate expiring soon
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+            let expiringSoon = 0;
+            
+            deliveries.forEach(delivery => {
+                const dpiValue = delivery.dpi;
+                const dpi = AppState.getDpiList().find(d => d.sap === dpiValue || d.id === dpiValue);
+                if (dpi && dpi.scadenza) {
+                    const deliveryDate = new Date(delivery.data);
+                    const expiryDate = new Date(deliveryDate);
+                    expiryDate.setMonth(expiryDate.getMonth() + dpi.scadenza);
+                    if (expiryDate <= thirtyDaysFromNow && expiryDate >= new Date()) {
+                        expiringSoon++;
+                    }
+                }
+            });
+            
+            if (expiringSoonCount) expiringSoonCount.textContent = expiringSoon;
+        }
+
+        // ==================== SETTINGS MANAGEMENT ====================
+
+        /**
+         * Previews company logo
+         */
+        function previewLogo() {
+            const fileInput = document.getElementById('company-logo');
+            const preview = document.getElementById('logo-preview');
+            if (fileInput && fileInput.files && fileInput.files[0] && preview) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        }
+
+        /**
+         * Loads settings from localStorage
+         */
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+            if (settings.companyName) {
+                document.getElementById('company-name').value = settings.companyName;
+                document.getElementById('current-company-name').textContent = settings.companyName;
+            }
+            if (settings.logo) {
+                document.getElementById('logo-preview').src = settings.logo;
+                document.getElementById('logo-preview').style.display = 'block';
+                document.getElementById('current-logo-status').textContent = 'Impostato';
+            }
+            if (settings.useLogoOnPrint !== undefined) {
+                document.getElementById('use-logo-print').checked = settings.useLogoOnPrint;
+                document.getElementById('current-logo-print').textContent = settings.useLogoOnPrint ? 'Sì' : 'No';
+            }
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            if (darkModeToggle) {
+                const currentTheme = localStorage.getItem('theme') || 'light';
+                darkModeToggle.checked = currentTheme === 'dark';
+                document.getElementById('current-theme').textContent = currentTheme === 'dark' ? 'Scuro' : 'Chiaro';
+            }
+        }
+
+        /**
+         * Saves settings to localStorage
+         */
+        function saveSettings() {
+            setButtonLoading('save-settings-btn', true);
+            try {
+                const companyName = document.getElementById('company-name').value.trim();
+                const useLogoOnPrint = document.getElementById('use-logo-print').checked;
+                const logoFile = document.getElementById('company-logo').files[0];
+                const settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+                
+                // Update settings
+                if (companyName) {
+                    settings.companyName = companyName;
+                    document.getElementById('current-company-name').textContent = companyName;
+                }
+                settings.useLogoOnPrint = useLogoOnPrint;
+                document.getElementById('current-logo-print').textContent = useLogoOnPrint ? 'Sì' : 'No';
+                
+                // Handle logo file
+                if (logoFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        settings.logo = e.target.result;
+                        localStorage.setItem('appSettings', JSON.stringify(settings));
+                        document.getElementById('current-logo-status').textContent = 'Impostato';
+                        showSuccess('Impostazioni salvate con successo!');
+                    };
+                    reader.readAsDataURL(logoFile);
+                } else {
+                    localStorage.setItem('appSettings', JSON.stringify(settings));
+                    showSuccess('Impostazioni salvate con successo!');
+                }
+            } catch (error) {
+                console.error('Errore salvataggio impostazioni:', error);
+                showError('Errore durante il salvataggio delle impostazioni');
+            } finally {
+                setButtonLoading('save-settings-btn', false);
+            }
+        }
+
+        // ==================== NAVIGATION & THEME MANAGEMENT ====================
+
+        /**
+         * Shows specific section
+         */
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.nav-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected section
+            const selectedSection = document.getElementById(sectionId);
+            if (selectedSection) {
+                selectedSection.classList.add('active');
+                
+                // Activate corresponding button
+                const activeButton = document.querySelector(`.nav-button[onclick="showSection('${sectionId}')"]`);
+                if (activeButton) {
+                    activeButton.classList.add('active');
+                }
+                
+                // Load section-specific data
+                if (sectionId === 'lavoratori-section') {
+                    loadWorkers();
+                } else if (sectionId === 'dpi-section') {
+                    loadDPI();
+                } else if (sectionId === 'consegna-section') {
+                    loadDPIForDelivery();
+                    setTodayDate();
+                    initSignatureCanvases();
+                } else if (sectionId === 'stampa-section') {
+                    toggleContentType();
+                } else if (sectionId === 'impostazioni-section') {
+                    loadSettings();
+                } else if (sectionId === 'home-section') {
+                    updateDashboard();
+                }
+            }
+        }
+
+        /**
+         * Toggles between light and dark theme
+         */
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update theme toggle button
+            const themeToggle = document.querySelector('.theme-toggle');
+            if (themeToggle) {
+                themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+            }
+            
+            // Update checkbox
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            if (darkModeToggle) {
+                darkModeToggle.checked = newTheme === 'dark';
+            }
+            
+            // Update settings display
+            document.getElementById('current-theme').textContent = newTheme === 'dark' ? 'Scuro' : 'Chiaro';
+        }
+
+        /**
+         * Initializes theme from localStorage
+         */
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            
+            const themeToggle = document.querySelector('.theme-toggle');
+            if (themeToggle) {
+                themeToggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+            }
+            
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            if (darkModeToggle) {
+                darkModeToggle.checked = savedTheme === 'dark';
+            }
+            
+            document.getElementById('current-theme').textContent = savedTheme === 'dark' ? 'Scuro' : 'Chiaro';
+        }
+
+        // ==================== APPLICATION INITIALIZATION ====================
+
+        /**
+         * Sets up event listeners
+         */
+        function setupEventListeners() {
+            console.log('Setup event listeners...');
+            
+            // Google login button
+            const googleLoginButton = document.getElementById('google-login');
+            if (googleLoginButton) {
+                googleLoginButton.addEventListener('click', handleGoogleLogin);
+            } else {
+                console.warn('Pulsante Google login non trovato');
+            }
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-worker-container')) {
+                    const dropdowns = document.querySelectorAll('.worker-dropdown');
+                    dropdowns.forEach(dropdown => {
+                        if (dropdown) dropdown.style.display = 'none';
+                    });
+                }
+            });
+        }
+
+        /**
+         * Initializes the application
+         */
+        function initializeApp() {
+            console.log('Inizializzazione applicazione...');
+            
+            // Initialize components
+            initTheme();
+            toggleContentType();
+            loadSettings();
+            initSignatureCanvases();
+            setTodayDate();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Check authentication state
+            checkAuthState();
+        }
+
+        // Placeholder functions for future implementation
+        function exportData() { showWarning('Funzione di esportazione non ancora implementata'); }
+        function importData() { showWarning('Funzione di importazione non ancora implementata'); }
+        function clearAllData() { showWarning('Funzione di cancellazione dati non ancora implementata'); }
+
+        // Start application when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+    </script>
+</body>
+</html>
